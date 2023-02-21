@@ -17,9 +17,6 @@ from typing import Optional
 
 import msgspec
 from betfair_parser.spec.streaming import MCM
-from betfair_parser.spec.streaming import STREAM_DECODER
-
-from nautilus_trader.common.providers import InstrumentProvider
 
 
 def flatten_tree(y: dict, **filters):

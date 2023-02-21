@@ -39,6 +39,7 @@ from nautilus_trader.adapters.betfair.client.core import BetfairClient
 from nautilus_trader.adapters.betfair.data import BetfairParser
 from nautilus_trader.adapters.betfair.providers import BetfairInstrumentProvider
 from nautilus_trader.adapters.betfair.util import flatten_tree
+from nautilus_trader.backtest.data.providers import TestInstrumentProvider
 from nautilus_trader.config import BacktestDataConfig
 from nautilus_trader.config import BacktestEngineConfig
 from nautilus_trader.config import BacktestRunConfig
@@ -198,7 +199,7 @@ class BetfairTestStubs:
     @staticmethod
     def betfair_reader(instrument_provider=None, **kwargs):
         instrument_provider = instrument_provider or BetfairInstrumentProvider.from_instruments([])
-        return make_betfair_reader(instrument_provider=instrument_provider, **kwargs)
+        return instrument_provider
 
     @staticmethod
     def betfair_venue_config() -> BacktestVenueConfig:
@@ -704,16 +705,10 @@ class BetfairDataProvider:
 
     @staticmethod
     def betfair_feed_parsed(market_id="1.166564490"):
-        instrument_provider = BetfairInstrumentProvider.from_instruments([])
-        reader = BetfairTestStubs.betfair_reader(instrument_provider=instrument_provider)
-        files = make_raw_files(glob_path=f"{TEST_DATA_DIR}/betfair/{market_id}*")
-
-        data = []
-        for rf in files:
-            for block in rf.iter():
-                data.extend(reader.parse(block=block))
-
-        return data
+        fn = f"{TEST_DATA_DIR}/betfair/{market_id}.bz2"
+        instruments = TestInstrumentProvider.betting_instrument(market_id)
+        data = BetfairDataProvider.market_updates(filename=fn)
+        return [instruments] + data
 
     @staticmethod
     def badly_formatted_log():

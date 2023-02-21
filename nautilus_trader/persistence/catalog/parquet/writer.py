@@ -28,6 +28,8 @@ from pyarrow import dataset as ds
 from pyarrow import parquet as pq
 from tqdm import tqdm
 
+from nautilus_trader.core.data import Data
+from nautilus_trader.core.nautilus_pyo3.persistence import ParquetType
 from nautilus_trader.core.nautilus_pyo3.persistence import ParquetWriter
 from nautilus_trader.model.data.base import GenericData
 from nautilus_trader.model.data.tick import QuoteTick
@@ -59,6 +61,7 @@ class ParquetDataCatalogWriter(AbstractDataCatalogWriter):
 
     def write_single_class(self, objects: list[T]):
         assert all(type(objects[0]) == type(obj) for obj in objects)
+        # table = objects_to_pyarrow_table()
 
     def write(self, objects: list, **kwargs):
         serialized = split_and_serialize(objs=objects)
@@ -84,6 +87,38 @@ def split_and_serialize(objs: list) -> dict[type, dict[Optional[str], list]]:
                 values[cls][instrument_id] = []
             values[cls][instrument_id].append(data)
     return values
+
+
+def objects_to_pyarrow_table_py(instrument: Instrument, objects: list[Data]) -> pa.Table:
+    cls = type(objects[0])
+    logging.warning(
+        f"No rust serializer defined for type {cls}, falling back to python serialization",
+    )
+    raise NotImplementedError
+
+
+def objects_to_pyarrow_table(instrument: Instrument, objects: list[Data]) -> pa.Table:
+    try:
+        parquet_type: ParquetType = py_type_to_parquet_type(type(objects[0]))
+    except RuntimeError:
+        # No rust implementation for this type, fallback to python
+        return objects_to_pyarrow_table_py(instrument, objects)
+
+    metadata = {
+        "instrument_id": instrument.id.value,
+        "price_precision": str(instrument.price_precision),
+        "size_precision": str(instrument.size_precision),
+    }
+
+    writer = ParquetWriter(
+        parquet_type,
+        metadata,
+    )
+    writer.write(QuoteTick.capsule_from_list(objects))  # type: ignore
+    data: bytes = writer.flush_bytes()
+    pf = pq.ParquetFile(BytesIO(data))
+    table = pa.Table.from_batches(pf.iter_batches())  # type: ignore
+    return table
 
 
 def dicts_to_dataframes(dicts) -> dict[type, dict[str, pd.DataFrame]]:
