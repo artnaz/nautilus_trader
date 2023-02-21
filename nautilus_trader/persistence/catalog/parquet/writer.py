@@ -18,12 +18,11 @@ import os
 import pathlib
 from io import BytesIO
 from itertools import groupby
-from typing import Optional, T, Union
+from typing import Optional, TypeVar, Union
 
 import fsspec
 import pandas as pd
 import pyarrow as pa
-from fsspec.core import OpenFile
 from pyarrow import ArrowInvalid
 from pyarrow import dataset as ds
 from pyarrow import parquet as pq
@@ -49,6 +48,9 @@ from nautilus_trader.serialization.arrow.util import clean_partition_cols
 from nautilus_trader.serialization.arrow.util import maybe_list
 
 
+T = TypeVar("T")
+
+
 class ParquetDataCatalogWriter(AbstractDataCatalogWriter):
     """ParquetDataCatalogWriter"""
 
@@ -62,11 +64,6 @@ class ParquetDataCatalogWriter(AbstractDataCatalogWriter):
         serialized = split_and_serialize(objs=objects)
         tables = dicts_to_dataframes(serialized)
         write_tables(catalog=self, tables=tables, **kwargs)
-
-
-def scan_files(glob_path, compression="infer", **kw) -> list[OpenFile]:
-    open_files = fsspec.open_files(glob_path, compression=compression, **kw)
-    return [of for of in open_files]
 
 
 def split_and_serialize(objs: list) -> dict[type, dict[Optional[str], list]]:

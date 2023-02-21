@@ -14,6 +14,7 @@
 // -------------------------------------------------------------------------------------------------
 
 pub mod parquet;
+pub mod session;
 
 use std::{collections::BTreeMap, ffi::c_void, fs::File, io::Cursor, ptr::null_mut, slice};
 
@@ -24,6 +25,7 @@ use parquet::{
 };
 use pyo3::types::PyBytes;
 use pyo3::{prelude::*, types::PyCapsule};
+use session::PersistenceSession;
 
 #[pyclass(name = "ParquetReader")]
 struct PythonParquetReader {
@@ -316,5 +318,6 @@ pub fn persistence(_: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<PythonParquetWriter>()?;
     m.add_class::<ParquetType>()?;
     m.add_class::<ParquetReaderType>()?;
+    m.add_class::<PersistenceSession>()?;
     Ok(())
 }

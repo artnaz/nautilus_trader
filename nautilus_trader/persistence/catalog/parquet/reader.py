@@ -457,11 +457,11 @@ class ParquetDataCatalogReader(AbstractDataCatalogReader):
         glob_path = f"{self.path}/live/*.feather"
         return [p.stem for p in map(Path, self.fs.glob(glob_path))]
 
-    def read_live_run(self, live_run_id: str, **kwargs):
-        return self._read_feather(kind="live", run_id=live_run_id, **kwargs)
+    def read_live_runs(self, instance_id: str, **kwargs):
+        return self._read_feather(kind="live", run_id=instance_id, **kwargs)
 
-    def read_backtest_run(self, backtest_run_id: str, **kwargs):
-        return self._read_feather(kind="backtest", run_id=backtest_run_id, **kwargs)
+    def read_backtest_run(self, instance_id: str, **kwargs):
+        return self._read_feather(kind="backtest", run_id=instance_id, **kwargs)
 
     def _read_feather(self, kind: str, run_id: str, raise_on_failed_deserialize: bool = False):
         class_mapping: dict[str, type] = {class_to_filename(cls): cls for cls in list_schemas()}
