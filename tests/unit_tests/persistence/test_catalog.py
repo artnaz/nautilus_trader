@@ -54,9 +54,10 @@ class TestParquetDataCatalogWriter:
 
     def test_write_to_catalog(self):
         count = 1000
+        instrument_dict = {ins.id: ins for ins in self.instruments}
         for instrument in self.instruments:
             quote_ticks = TestDataStubs.generate_quote_ticks(instrument.id.value, count=count)
-            self.catalog.write(quote_ticks)
+            self.catalog.write(quote_ticks, instrument_dict=instrument_dict)
 
 
 # class TestPersistenceCatalog:

@@ -40,7 +40,7 @@ class AbstractDataCatalogWriter(ABC, metaclass=_CombinedMeta):
     Provides a abstract base class for writing to a data catalog.
     """
 
-    def write(self, objects: list[Any]) -> None:
+    def write(self, objects: list[Any], **kwargs) -> None:
         raise NotImplementedError
 
 

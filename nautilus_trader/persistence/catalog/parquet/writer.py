@@ -23,6 +23,9 @@ from typing import Optional, TypeVar, Union
 import fsspec
 import pandas as pd
 import pyarrow as pa
+from minimalkv import KeyValueStore
+from minimalkv import get_store_from_url
+from plateau.io.eager import update_dataset_from_dataframes
 from pyarrow import ArrowInvalid
 from pyarrow import dataset as ds
 from pyarrow import parquet as pq
@@ -34,6 +37,7 @@ from nautilus_trader.core.nautilus_pyo3.persistence import ParquetWriter
 from nautilus_trader.model.data.base import GenericData
 from nautilus_trader.model.data.tick import QuoteTick
 from nautilus_trader.model.data.tick import TradeTick
+from nautilus_trader.model.identifiers import InstrumentId
 from nautilus_trader.model.instruments.base import Instrument
 from nautilus_trader.persistence.catalog.base import AbstractDataCatalogWriter
 from nautilus_trader.persistence.external.metadata import load_mappings
@@ -56,17 +60,41 @@ T = TypeVar("T")
 class ParquetDataCatalogWriter(AbstractDataCatalogWriter):
     """ParquetDataCatalogWriter"""
 
-    def __init__(self):
-        pass
+    def __init__(self, catalog_url: str):
+        self.store: KeyValueStore = self.resolve_store(catalog_url)
 
-    def write_single_class(self, objects: list[T]):
+    @staticmethod
+    def resolve_store(uri: str) -> KeyValueStore:
+        if "://" not in uri:
+            # Assume a local path
+            uri = "hfs://" + uri
+        store = get_store_from_url(uri)
+        return store
+
+    def write_single_class(self, objects: list[T], instrument: Optional[Instrument] = None):
         assert all(type(objects[0]) == type(obj) for obj in objects)
-        # table = objects_to_pyarrow_table()
+        cls = type(objects[0])
+        table = objects_to_pyarrow_table(instrument, objects)
+        df = table.to_pandas()
+        if b"instrument_id" in table.schema.metadata:
+            df = df.assign(instrument_id=instrument.id.value)
+        partition_cols = determine_partition_cols(cls=cls, instrument=instrument)
+        dm = update_dataset_from_dataframes(
+            [df],
+            self.store,
+            cls.__name__,
+            partition_on=partition_cols,
+        )
+        assert dm
 
-    def write(self, objects: list, **kwargs):
-        serialized = split_and_serialize(objs=objects)
-        tables = dicts_to_dataframes(serialized)
-        write_tables(catalog=self, tables=tables, **kwargs)
+    def write(self, objects: list, instrument_dict: dict[InstrumentId, Instrument]):  # noqa
+        key = lambda x: (type(x).__name__, getattr(x, "instrument_id"))  # noqa
+        for (cls_name, instrument_id), objects in groupby(sorted(objects, key=key), key=key):
+            objects = list(objects)
+            self.write_single_class(
+                objects=objects,
+                instrument=instrument_dict.get(instrument_id, None),
+            )
 
 
 def split_and_serialize(objs: list) -> dict[type, dict[Optional[str], list]]:
@@ -117,7 +145,7 @@ def objects_to_pyarrow_table(instrument: Instrument, objects: list[Data]) -> pa.
     writer.write(QuoteTick.capsule_from_list(objects))  # type: ignore
     data: bytes = writer.flush_bytes()
     pf = pq.ParquetFile(BytesIO(data))
-    table = pa.Table.from_batches(pf.iter_batches())  # type: ignore
+    table = pa.Table.from_batches(pf.iter_batches(), schema=pf.schema_arrow)  # type: ignore
     return table
 
 
@@ -142,14 +170,17 @@ def dicts_to_dataframes(dicts) -> dict[type, dict[str, pd.DataFrame]]:
     return tables
 
 
-def determine_partition_cols(cls: type, instrument_id: str = None) -> Union[list, None]:
+def determine_partition_cols(
+    cls: type,
+    instrument: Optional[Instrument] = None,
+) -> Union[list, None]:
     """
     Determine partition columns (if any) for this type `cls`.
     """
     partition_keys = get_partition_keys(cls)
     if partition_keys:
         return list(partition_keys)
-    elif instrument_id is not None:
+    elif instrument is not None:
         return ["instrument_id"]
     return None
 

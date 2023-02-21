@@ -5,4 +5,6 @@ from nautilus_trader.persistence.catalog.parquet.writer import ParquetDataCatalo
 class ParquetDataCatalog(ParquetDataCatalogReader, ParquetDataCatalogWriter):
     """ParquetDataCatalog"""
 
-    pass
+    def __init__(self, catalog_url: str):
+        ParquetDataCatalogReader.__init__(self, catalog_url)
+        ParquetDataCatalogWriter.__init__(self, catalog_url)

@@ -16,7 +16,6 @@ import heapq
 import itertools
 import os
 import pathlib
-import platform
 import sys
 from pathlib import Path
 from typing import Callable, Optional, Union
@@ -27,9 +26,6 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.dataset as ds
 import pyarrow.parquet as pq
-from fsspec.implementations.local import make_path_posix
-from fsspec.implementations.memory import MemoryFileSystem
-from fsspec.utils import infer_storage_options
 from pyarrow import ArrowInvalid
 
 from nautilus_trader.core.datetime import dt_to_unix_nanos
@@ -71,43 +67,8 @@ class ParquetDataCatalogReader(AbstractDataCatalogReader):
     The catalog is not threadsafe.
     """
 
-    def __init__(
-        self,
-        path: str,
-        fs_protocol: Optional[str] = "file",
-        fs_storage_options: Optional[dict] = None,
-    ):
-        self.fs_protocol = fs_protocol
-        self.fs_storage_options = fs_storage_options or {}
-        self.fs: fsspec.AbstractFileSystem = fsspec.filesystem(
-            self.fs_protocol, **self.fs_storage_options
-        )
-
-        path = make_path_posix(path)
-
-        if (
-            isinstance(self.fs, MemoryFileSystem)
-            and platform.system() == "Windows"
-            and not path.startswith("/")
-        ):
-            path = "/" + path
-
-        self.path = str(path)
-
-    @classmethod
-    def from_env(cls):
-        return cls.from_uri(os.environ["NAUTILUS_PATH"] + "/catalog")
-
-    @classmethod
-    def from_uri(cls, uri):
-        if "://" not in uri:
-            # Assume a local path
-            uri = "file://" + uri
-        parsed = infer_storage_options(uri)
-        path = parsed.pop("path")
-        protocol = parsed.pop("protocol")
-        storage_options = parsed.copy()
-        return cls(path=path, fs_protocol=protocol, fs_storage_options=storage_options)
+    def __init__(self, catalog_url: str):
+        self.catalog_url = catalog_url
 
     # -- QUERIES -----------------------------------------------------------------------------------
 
@@ -457,7 +418,7 @@ class ParquetDataCatalogReader(AbstractDataCatalogReader):
         glob_path = f"{self.path}/live/*.feather"
         return [p.stem for p in map(Path, self.fs.glob(glob_path))]
 
-    def read_live_runs(self, instance_id: str, **kwargs):
+    def read_live_run(self, instance_id: str, **kwargs):
         return self._read_feather(kind="live", run_id=instance_id, **kwargs)
 
     def read_backtest_run(self, instance_id: str, **kwargs):

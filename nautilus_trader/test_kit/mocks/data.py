@@ -36,17 +36,7 @@ def data_catalog_setup(protocol, path=tempfile.mktemp()) -> ParquetDataCatalog:
 
     clear_singleton_instances(ParquetDataCatalog)
 
-    catalog = ParquetDataCatalog(path=path, fs_protocol=protocol)
-
-    path = catalog.path
-
-    if catalog.fs.exists(path):
-        catalog.fs.rm(path, recursive=True)
-
-    catalog.fs.mkdir(path, create_parents=True)
-
-    assert catalog.fs.isdir(path)
-    assert not catalog.fs.glob(f"{path}/**")
+    catalog = ParquetDataCatalog(path)
 
     return catalog
 
