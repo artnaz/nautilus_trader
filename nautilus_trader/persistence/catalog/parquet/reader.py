@@ -41,7 +41,7 @@ from nautilus_trader.model.data.base import GenericData
 from nautilus_trader.model.data.tick import QuoteTick
 from nautilus_trader.model.data.tick import TradeTick
 from nautilus_trader.model.objects import FIXED_SCALAR
-from nautilus_trader.persistence.catalog.base import BaseDataCatalog
+from nautilus_trader.persistence.catalog.base import AbstractDataCatalogReader
 from nautilus_trader.persistence.external.metadata import load_mappings
 from nautilus_trader.persistence.external.util import is_filename_in_time_range
 from nautilus_trader.persistence.streaming.batching import generate_batches_rust
@@ -53,7 +53,7 @@ from nautilus_trader.serialization.arrow.util import clean_key
 from nautilus_trader.serialization.arrow.util import dict_of_lists_to_list_of_dicts
 
 
-class ParquetDataCatalog(BaseDataCatalog):
+class ParquetDataCatalogReader(AbstractDataCatalogReader):
     """
     Provides a queryable data catalog persisted to files in parquet format.
 
@@ -449,7 +449,7 @@ class ParquetDataCatalog(BaseDataCatalog):
             partitions[level.name] = level.keys
         return partitions
 
-    def list_backtests(self) -> list[str]:
+    def list_backtest_runs(self) -> list[str]:
         glob_path = f"{self.path}/backtest/*.feather"
         return [p.stem for p in map(Path, self.fs.glob(glob_path))]
 
@@ -460,7 +460,7 @@ class ParquetDataCatalog(BaseDataCatalog):
     def read_live_run(self, live_run_id: str, **kwargs):
         return self._read_feather(kind="live", run_id=live_run_id, **kwargs)
 
-    def read_backtest(self, backtest_run_id: str, **kwargs):
+    def read_backtest_run(self, backtest_run_id: str, **kwargs):
         return self._read_feather(kind="backtest", run_id=backtest_run_id, **kwargs)
 
     def _read_feather(self, kind: str, run_id: str, raise_on_failed_deserialize: bool = False):

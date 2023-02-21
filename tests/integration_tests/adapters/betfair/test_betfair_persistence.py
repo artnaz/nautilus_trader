@@ -19,8 +19,8 @@ import pytest
 from nautilus_trader.adapters.betfair.data_types import BetfairStartingPrice
 from nautilus_trader.adapters.betfair.data_types import BSPOrderBookDelta
 from nautilus_trader.backtest.data.providers import TestInstrumentProvider
-from nautilus_trader.persistence.external.core import RawFile
-from nautilus_trader.persistence.external.core import process_raw_file
+from nautilus_trader.persistence.catalog.parquet.core import RawFile
+from nautilus_trader.persistence.catalog.parquet.core import process_raw_file
 from nautilus_trader.serialization.arrow.serializer import ParquetSerializer
 from nautilus_trader.test_kit.mocks.data import data_catalog_setup
 from tests import TEST_DATA_DIR

@@ -39,7 +39,6 @@ from nautilus_trader.adapters.betfair.client.core import BetfairClient
 from nautilus_trader.adapters.betfair.data import BetfairParser
 from nautilus_trader.adapters.betfair.providers import BetfairInstrumentProvider
 from nautilus_trader.adapters.betfair.util import flatten_tree
-from nautilus_trader.adapters.betfair.util import make_betfair_reader
 from nautilus_trader.config import BacktestDataConfig
 from nautilus_trader.config import BacktestEngineConfig
 from nautilus_trader.config import BacktestRunConfig
@@ -49,7 +48,6 @@ from nautilus_trader.config import RiskEngineConfig
 from nautilus_trader.config import StreamingConfig
 from nautilus_trader.model.data.tick import TradeTick
 from nautilus_trader.model.orderbook.data import OrderBookData
-from nautilus_trader.persistence.external.core import make_raw_files
 from nautilus_trader.test_kit.stubs.component import TestComponentStubs
 from tests import TEST_DATA_DIR
 from tests import TESTS_PACKAGE_ROOT

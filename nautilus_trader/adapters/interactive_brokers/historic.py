@@ -43,7 +43,7 @@ from nautilus_trader.model.instruments.base import Instrument
 from nautilus_trader.model.objects import Price
 from nautilus_trader.model.objects import Quantity
 from nautilus_trader.persistence.catalog.parquet import ParquetDataCatalog
-from nautilus_trader.persistence.external.core import write_objects
+from nautilus_trader.persistence.catalog.parquet.core import write_objects
 
 
 logger = logging.getLogger(__name__)

@@ -34,7 +34,7 @@ from nautilus_trader.model.data.tick import QuoteTick
 from nautilus_trader.model.data.venue import InstrumentStatusUpdate
 from nautilus_trader.model.identifiers import Venue
 from nautilus_trader.model.orderbook.data import OrderBookData
-from nautilus_trader.persistence.external.core import process_files
+from nautilus_trader.persistence.catalog.parquet.core import process_files
 from nautilus_trader.persistence.external.readers import CSVReader
 from nautilus_trader.persistence.external.readers import ParquetReader as ParquetByteReader
 from nautilus_trader.persistence.funcs import parse_bytes

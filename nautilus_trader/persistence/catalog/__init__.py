@@ -13,11 +13,13 @@
 #  limitations under the License.
 # -------------------------------------------------------------------------------------------------
 
-from nautilus_trader.persistence.catalog.base import BaseDataCatalog
+from nautilus_trader.persistence.catalog.base import AbstractDataCatalogReader
+from nautilus_trader.persistence.catalog.base import AbstractDataCatalogWriter
 from nautilus_trader.persistence.catalog.parquet import ParquetDataCatalog
 
 
 __all__ = (
-    "BaseDataCatalog",
+    "AbstractDataCatalogWriter",
+    "AbstractDataCatalogReader",
     "ParquetDataCatalog",
 )

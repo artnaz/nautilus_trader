@@ -68,6 +68,8 @@ ib_insync = {version = "^0.9.81", optional = true}
 redis = {version = "^4.5.1", optional = true}
 docker = {version = "^6.0.1", optional = true}
 betfair_parser = {version = "==0.1.11", optional = true}
+datafusion = "^0.7.0"
+plateau = "^4.1.4"
 
 [tool.poetry.extras]
 betfair = ["betfair_parser"]

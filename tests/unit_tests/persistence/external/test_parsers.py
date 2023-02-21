@@ -21,9 +21,9 @@ from nautilus_trader.adapters.betfair.providers import BetfairInstrumentProvider
 from nautilus_trader.backtest.data.wranglers import BarDataWrangler
 from nautilus_trader.backtest.data.wranglers import QuoteTickDataWrangler
 from nautilus_trader.model.instruments.currency_pair import CurrencyPair
-from nautilus_trader.persistence.external.core import make_raw_files
-from nautilus_trader.persistence.external.core import process_files
-from nautilus_trader.persistence.external.core import process_raw_file
+from nautilus_trader.persistence.catalog.parquet.core import make_raw_files
+from nautilus_trader.persistence.catalog.parquet.core import process_files
+from nautilus_trader.persistence.catalog.parquet.core import process_raw_file
 from nautilus_trader.persistence.external.readers import ByteReader
 from nautilus_trader.persistence.external.readers import CSVReader
 from nautilus_trader.persistence.external.readers import LinePreprocessor

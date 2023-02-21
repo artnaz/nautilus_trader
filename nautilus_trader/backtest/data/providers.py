@@ -392,19 +392,23 @@ class TestInstrumentProvider:
         )
 
     @staticmethod
-    def aapl_equity():
+    def equity(symbol: str, venue: str, currency: Currency = USD):
         return Equity(
-            instrument_id=InstrumentId(symbol=Symbol("AAPL"), venue=Venue("NASDAQ")),
-            native_symbol=Symbol("AAPL"),
-            currency=USD,
+            instrument_id=InstrumentId(symbol=Symbol(symbol), venue=Venue(venue)),
+            native_symbol=Symbol(symbol),
+            currency=currency,
             price_precision=2,
             price_increment=Price.from_str("0.01"),
             multiplier=Quantity.from_int(1),
             lot_size=Quantity.from_int(1),
-            isin="US0378331005",
+            isin="ISIN",
             ts_event=0,
             ts_init=0,
         )
+
+    @staticmethod
+    def aapl_equity():
+        return TestInstrumentProvider.equity("AAPL", "NASDAQ")
 
     @staticmethod
     def es_future():

@@ -16,7 +16,7 @@
 from abc import ABC
 from abc import ABCMeta
 from abc import abstractmethod
-from typing import Optional
+from typing import Any, Optional
 
 from nautilus_trader.model.data.bar import Bar
 from nautilus_trader.model.data.base import DataType
@@ -35,18 +35,19 @@ class _CombinedMeta(Singleton, ABCMeta):  # noqa
     pass
 
 
-class BaseDataCatalog(ABC, metaclass=_CombinedMeta):
+class AbstractDataCatalogWriter(ABC, metaclass=_CombinedMeta):
+    """
+    Provides a abstract base class for writing to a data catalog.
+    """
+
+    def write(self, objects: list[Any]) -> None:
+        raise NotImplementedError
+
+
+class AbstractDataCatalogReader(ABC, metaclass=_CombinedMeta):
     """
     Provides a abstract base class for a queryable data catalog.
     """
-
-    @abstractmethod
-    def from_env(cls):
-        raise NotImplementedError
-
-    @abstractmethod
-    def from_uri(cls, uri):
-        raise NotImplementedError
 
     # -- QUERIES -----------------------------------------------------------------------------------
 
@@ -161,16 +162,13 @@ class BaseDataCatalog(ABC, metaclass=_CombinedMeta):
     def generic_data(
         self,
         cls: type,
-        as_nautilus: bool = False,
         metadata: Optional[dict] = None,
         **kwargs,
     ):
         data = self.query(cls=cls, **kwargs)
-        if as_nautilus:
-            if data is None:
-                return []
-            return [GenericData(data_type=DataType(cls, metadata=metadata), data=d) for d in data]
-        return data
+        if data is None:
+            return []
+        return [GenericData(data_type=DataType(cls, metadata=metadata), data=d) for d in data]
 
     @abstractmethod
     def list_data_types(self):
@@ -185,7 +183,7 @@ class BaseDataCatalog(ABC, metaclass=_CombinedMeta):
         ]
 
     @abstractmethod
-    def list_backtests(self) -> list[str]:
+    def list_backtest_runs(self) -> list[str]:
         raise NotImplementedError
 
     @abstractmethod
@@ -193,9 +191,9 @@ class BaseDataCatalog(ABC, metaclass=_CombinedMeta):
         raise NotImplementedError
 
     @abstractmethod
-    def read_live_run(self, live_run_id: str, **kwargs):
+    def read_live_run(self, instance_id: str, **kwargs):
         raise NotImplementedError
 
     @abstractmethod
-    def read_backtest(self, backtest_run_id: str, **kwargs):
+    def read_backtest_run(self, instance_id: str, **kwargs):
         raise NotImplementedError

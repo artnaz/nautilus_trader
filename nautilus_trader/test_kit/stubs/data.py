@@ -14,14 +14,19 @@
 # -------------------------------------------------------------------------------------------------
 
 import json
+import random
 from typing import Any, Optional
 
+import numpy as np
 import pandas as pd
 
 from nautilus_trader.backtest.data.providers import TestDataProvider
 from nautilus_trader.backtest.data.providers import TestInstrumentProvider
 from nautilus_trader.backtest.data.wranglers import QuoteTickDataWrangler
+from nautilus_trader.core.datetime import dt_to_unix_nanos
 from nautilus_trader.core.datetime import millis_to_nanos
+from nautilus_trader.core.datetime import secs_to_nanos
+from nautilus_trader.core.uuid import UUID4
 from nautilus_trader.model.data.bar import Bar
 from nautilus_trader.model.data.bar import BarSpecification
 from nautilus_trader.model.data.bar import BarType
@@ -491,3 +496,85 @@ class TestDataStubs:
                     )
 
         return [msg for data in json.loads(open(filename).read()) for msg in parser(data)]
+
+    @staticmethod
+    def simulate_value_diffs(
+        count: int,
+        max_diff: float = 10,
+        prob_increase: float = 0.25,
+        prob_decrease: float = 0.25,
+    ) -> pd.Series:
+        def sim():
+            if random.random() <= prob_increase:
+                return random.uniform(0, max_diff)
+            elif random.random() <= prob_decrease:
+                return -random.uniform(0, max_diff)
+            else:
+                return 0
+
+        return pd.Series([sim() for _ in range(count)])
+
+    @staticmethod
+    def generate_time_series_index(
+        start_timestamp: str = "2020-01-01",
+        max_freq: str = "1s",
+        count: int = 100_000,
+    ) -> pd.DatetimeIndex:
+        start = dt_to_unix_nanos(pd.Timestamp(start_timestamp))
+        freq_in_nanos = secs_to_nanos(pd.Timedelta(max_freq).total_seconds())
+        diffs = np.random.uniform(0, freq_in_nanos, size=count - 1)
+        srs = pd.Series([start] + diffs.tolist())  # type: ignore
+        return pd.to_datetime(srs).cumsum()
+
+    @staticmethod
+    def generate_time_series(
+        start_timestamp: str = "2020-01-01",
+        start_price: float = 100.0,
+        default_quantity: int = 10,
+        max_freq: str = "1s",
+        count: int = 100_000,
+    ) -> pd.DataFrame:
+        price_diffs = np.random.uniform(-1, 1, size=count - 1)
+        prices = pd.Series([start_price] + price_diffs.tolist()).cumsum()  # type: ignore
+
+        quantity_diffs = TestDataStubs.simulate_value_diffs(count)
+        quantity = pd.Series(default_quantity + quantity_diffs).astype(int)  # type: ignore
+
+        index = TestDataStubs.generate_time_series_index(start_timestamp, max_freq, count)
+        return pd.DataFrame(index=index, data={"price": prices.values, "quantity": quantity.values})
+
+    @staticmethod
+    def generate_quote_ticks(
+        instrument_id: str, price_prec: int = 4, quantity_prec: int = 4, **kwargs
+    ) -> list[QuoteTick]:
+        df: pd.DataFrame = TestDataStubs.generate_time_series(**kwargs)
+        return [
+            QuoteTick(
+                InstrumentId.from_str(instrument_id),
+                Price(row["price"] + 1, price_prec),
+                Price(row["price"] - 1, price_prec),
+                Quantity(row["quantity"], quantity_prec),
+                Quantity(row["quantity"], quantity_prec),
+                dt_to_unix_nanos(idx),
+                dt_to_unix_nanos(idx),
+            )
+            for idx, row in df.iterrows()
+        ]
+
+    @staticmethod
+    def generate_trade_ticks(
+        instrument_id: str, price_prec: int = 4, quantity_prec: int = 4, **kwargs
+    ) -> list[TradeTick]:
+        df: pd.DataFrame = TestDataStubs.generate_time_series(**kwargs)
+        return [
+            TradeTick(
+                InstrumentId.from_str(instrument_id),
+                Price(row["price"], price_prec),
+                Quantity(row["quantity"], quantity_prec),
+                AggressorSide.NO_AGGRESSOR,
+                TradeId(UUID4().value),
+                dt_to_unix_nanos(idx),
+                dt_to_unix_nanos(idx),
+            )
+            for idx, row in df.iterrows()
+        ]

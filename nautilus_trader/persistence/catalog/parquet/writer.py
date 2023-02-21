@@ -16,11 +16,9 @@
 import logging
 import os
 import pathlib
-from concurrent.futures import Executor
-from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from itertools import groupby
-from typing import Optional, Union
+from typing import Optional, T, Union
 
 import fsspec
 import pandas as pd
@@ -31,20 +29,16 @@ from pyarrow import dataset as ds
 from pyarrow import parquet as pq
 from tqdm import tqdm
 
-from nautilus_trader.core.correctness import PyCondition
 from nautilus_trader.core.nautilus_pyo3.persistence import ParquetWriter
 from nautilus_trader.model.data.base import GenericData
 from nautilus_trader.model.data.tick import QuoteTick
 from nautilus_trader.model.data.tick import TradeTick
 from nautilus_trader.model.instruments.base import Instrument
-from nautilus_trader.persistence.catalog.base import BaseDataCatalog
-from nautilus_trader.persistence.catalog.parquet import ParquetDataCatalog
+from nautilus_trader.persistence.catalog.base import AbstractDataCatalogWriter
 from nautilus_trader.persistence.external.metadata import load_mappings
 from nautilus_trader.persistence.external.metadata import write_partition_column_mappings
-from nautilus_trader.persistence.external.readers import Reader
 from nautilus_trader.persistence.external.util import parse_filename_start
 from nautilus_trader.persistence.external.util import py_type_to_parquet_type
-from nautilus_trader.persistence.funcs import parse_bytes
 from nautilus_trader.serialization.arrow.serializer import ParquetSerializer
 from nautilus_trader.serialization.arrow.serializer import get_cls_table
 from nautilus_trader.serialization.arrow.serializer import get_partition_keys
@@ -55,116 +49,19 @@ from nautilus_trader.serialization.arrow.util import clean_partition_cols
 from nautilus_trader.serialization.arrow.util import maybe_list
 
 
-class RawFile:
-    """
-    Provides a wrapper of `fsspec.OpenFile` that processes a raw file and writes to parquet.
+class ParquetDataCatalogWriter(AbstractDataCatalogWriter):
+    """ParquetDataCatalogWriter"""
 
-    Parameters
-    ----------
-    open_file : fsspec.core.OpenFile
-        The fsspec.OpenFile source of this data.
-    block_size: int
-        The max block (chunk) size in bytes to read from the file.
-    progress: bool, default False
-        If a progress bar should be shown when processing this individual file.
-    """
-
-    def __init__(
-        self,
-        open_file: OpenFile,
-        block_size: Optional[int] = None,
-        progress: bool = False,
-    ):
-        self.open_file = open_file
-        self.block_size = block_size
-        # TODO - waiting for tqdm support in fsspec https://github.com/intake/filesystem_spec/pulls?q=callback
-        assert not progress, "Progress not yet available, awaiting fsspec feature"
-        self.progress = progress
-
-    def iter(self):
-        with self.open_file as f:
-            if self.progress:
-                f.read = read_progress(
-                    f.read,
-                    total=self.open_file.fs.stat(self.open_file.path)["size"],
-                )
-
-            while True:
-                raw = f.read(self.block_size)
-                if not raw:
-                    return
-                yield raw
-
-
-def process_raw_file(
-    catalog: ParquetDataCatalog,
-    raw_file: RawFile,
-    reader: Reader,
-    use_rust=False,
-    instrument=None,
-):
-    n_rows = 0
-    for block in raw_file.iter():
-        objs = [x for x in reader.parse(block) if x is not None]
-        if use_rust:
-            write_parquet_rust(catalog, objs, instrument)
-            n_rows += len(objs)
-        else:
-            dicts = split_and_serialize(objs)
-            dataframes = dicts_to_dataframes(dicts)
-            n_rows += write_tables(catalog=catalog, tables=dataframes)
-    reader.on_file_complete()
-    return n_rows
-
-
-def process_files(
-    glob_path,
-    reader: Reader,
-    catalog: ParquetDataCatalog,
-    block_size: str = "128mb",
-    compression: str = "infer",
-    executor: Optional[Executor] = None,
-    use_rust=False,
-    instrument: Instrument = None,
-    **kwargs,
-):
-    PyCondition.type_or_none(executor, Executor, "executor")
-    if use_rust:
-        assert instrument, "Instrument needs to be provided when saving rust data."
-
-    executor = executor or ThreadPoolExecutor()
-
-    raw_files = make_raw_files(
-        glob_path=glob_path,
-        block_size=block_size,
-        compression=compression,
-        **kwargs,
-    )
-
-    futures = {}
-    for rf in raw_files:
-        futures[rf] = executor.submit(
-            process_raw_file,
-            catalog=catalog,
-            raw_file=rf,
-            reader=reader,
-            instrument=instrument,
-            use_rust=use_rust,
-        )
-
-    # Show progress
-    for _ in tqdm(list(futures.values())):
+    def __init__(self):
         pass
 
-    results = {rf.open_file.path: f.result() for rf, f in futures.items()}
-    executor.shutdown()
+    def write_single_class(self, objects: list[T]):
+        assert all(type(objects[0]) == type(obj) for obj in objects)
 
-    return results
-
-
-def make_raw_files(glob_path, block_size="128mb", compression="infer", **kw) -> list[RawFile]:
-    files = scan_files(glob_path, compression=compression, **kw)
-    return [RawFile(open_file=f, block_size=parse_bytes(block_size)) for f in files]
+    def write(self, objects: list, **kwargs):
+        serialized = split_and_serialize(objs=objects)
+        tables = dicts_to_dataframes(serialized)
+        write_tables(catalog=self, tables=tables, **kwargs)
 
 
 def scan_files(glob_path, compression="infer", **kw) -> list[OpenFile]:
@@ -225,7 +122,11 @@ def determine_partition_cols(cls: type, instrument_id: str = None) -> Union[list
     return None
 
 
-def merge_existing_data(catalog: BaseDataCatalog, cls: type, df: pd.DataFrame) -> pd.DataFrame:
+def merge_existing_data(
+    catalog: ParquetDataCatalogWriter,
+    cls: type,
+    df: pd.DataFrame,
+) -> pd.DataFrame:
     """
     Handle existing data for instrument subclasses.
 
@@ -245,7 +146,7 @@ def merge_existing_data(catalog: BaseDataCatalog, cls: type, df: pd.DataFrame) -
 
 
 def write_tables(
-    catalog: ParquetDataCatalog, tables: dict[type, dict[str, pd.DataFrame]], **kwargs
+    catalog: ParquetDataCatalogWriter, tables: dict[type, dict[str, pd.DataFrame]], **kwargs
 ):
     """
     Write tables to catalog.
@@ -282,7 +183,7 @@ def write_tables(
     return rows_written
 
 
-def write_parquet_rust(catalog: ParquetDataCatalog, objs: list, instrument: Instrument):
+def write_parquet_rust(catalog: ParquetDataCatalogWriter, objs: list, instrument: Instrument):
     cls = type(objs[0])
 
     assert cls in (QuoteTick, TradeTick)
@@ -311,7 +212,7 @@ def write_parquet_rust(catalog: ParquetDataCatalog, objs: list, instrument: Inst
     with open(file_path, "wb") as f:
         f.write(data)
 
-    write_objects(catalog, [instrument], existing_data_behavior="overwrite_or_ignore")
+    catalog.write([instrument], existing_data_behavior="overwrite_or_ignore")
 
 
 def write_parquet(
@@ -396,12 +297,6 @@ def write_parquet(
         write_partition_column_mappings(fs=fs, path=path, mappings=mappings)
 
 
-def write_objects(catalog: ParquetDataCatalog, chunk: list, **kwargs):
-    serialized = split_and_serialize(objs=chunk)
-    tables = dicts_to_dataframes(serialized)
-    write_tables(catalog=catalog, tables=tables, **kwargs)
-
-
 def read_progress(func, total):
     """
     Wrap a file handle and update progress bar as bytes are read.
@@ -416,7 +311,7 @@ def read_progress(func, total):
     return inner
 
 
-def _validate_dataset(catalog: ParquetDataCatalog, path: str, new_partition_format="%Y%m%d"):
+def _validate_dataset(catalog: ParquetDataCatalogWriter, path: str, new_partition_format="%Y%m%d"):
     """
     Repartition dataset into sorted time chunks (default dates) and drop duplicates.
     """
@@ -446,7 +341,7 @@ def _validate_dataset(catalog: ParquetDataCatalog, path: str, new_partition_form
             fs.rm(fn)
 
 
-def validate_data_catalog(catalog: ParquetDataCatalog, **kwargs):
+def validate_data_catalog(catalog: ParquetDataCatalogWriter, **kwargs):
     for cls in catalog.list_data_types():
         path = f"{catalog.path}/data/{cls}.parquet"
         _validate_dataset(catalog=catalog, path=path, **kwargs)

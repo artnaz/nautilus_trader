@@ -20,8 +20,6 @@ from betfair_parser.spec.streaming import MCM
 from betfair_parser.spec.streaming import STREAM_DECODER
 
 from nautilus_trader.common.providers import InstrumentProvider
-from nautilus_trader.persistence.external.readers import LinePreprocessor
-from nautilus_trader.persistence.external.readers import TextReader
 
 
 def flatten_tree(y: dict, **filters):
@@ -89,25 +87,3 @@ def historical_instrument_provider_loader(instrument_provider, line):
     if not instrument_provider.list_all():
         # TODO - Need to add historical search
         raise Exception("No instruments found")
-
-
-def make_betfair_reader(
-    instrument_provider: Optional[InstrumentProvider] = None,
-    line_preprocessor: Optional[LinePreprocessor] = None,
-) -> TextReader:
-    from nautilus_trader.adapters.betfair.parsing.streaming import BetfairParser
-    from nautilus_trader.adapters.betfair.providers import BetfairInstrumentProvider
-
-    instrument_provider = instrument_provider or BetfairInstrumentProvider.from_instruments([])
-    parser = BetfairParser()
-
-    def parse_line(line):
-        yield from parser.parse(STREAM_DECODER.decode(line))
-
-    return TextReader(
-        # Use the standard `on_market_update` betfair parser that the adapter uses
-        line_preprocessor=line_preprocessor,
-        line_parser=parse_line,
-        instrument_provider_update=historical_instrument_provider_loader,
-        instrument_provider=instrument_provider,
-    )

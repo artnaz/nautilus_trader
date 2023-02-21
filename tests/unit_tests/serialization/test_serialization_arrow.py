@@ -39,7 +39,7 @@ from nautilus_trader.model.orderbook.data import OrderBookDeltas
 from nautilus_trader.model.orderbook.data import OrderBookSnapshot
 from nautilus_trader.model.position import Position
 from nautilus_trader.persistence.catalog.parquet import ParquetDataCatalog
-from nautilus_trader.persistence.external.core import write_objects
+from nautilus_trader.persistence.catalog.parquet.core import write_objects
 from nautilus_trader.serialization.arrow.serializer import ParquetSerializer
 from nautilus_trader.test_kit.stubs.data import TestDataStubs
 from nautilus_trader.test_kit.stubs.events import TestEventStubs

@@ -110,7 +110,7 @@ instruments (of various asset classes) can be found in `nautilus_trader.model.in
 See [Instruments](./instruments.md) for more details on creating other instruments.
 
 ```python
-from nautilus_trader.persistence.external.core import process_files, write_objects
+from nautilus_trader.persistence.catalog.parquet.core import process_files, write_objects
 from nautilus_trader.backtest.data.providers import TestInstrumentProvider
 
 # Use nautilus test helpers to create a EUR/USD FX instrument for our purposes
@@ -120,7 +120,7 @@ instrument = TestInstrumentProvider.default_fx_ccy("EUR/USD")
 We can now add our new instrument to the `ParquetDataCatalog`:
 
 ```python
-from nautilus_trader.persistence.external.core import write_objects
+from nautilus_trader.persistence.catalog.parquet.core import write_objects
 
 write_objects(catalog, [instrument])
 ```
@@ -150,16 +150,15 @@ will appear below):
 <!-- #endregion -->
 
 ```python
-from nautilus_trader.persistence.external.core import process_files
+from nautilus_trader.persistence.catalog.parquet.core import process_files
 from nautilus_trader.persistence.external.readers import CSVReader
-
 
 process_files(
     glob_path=input_files,
     reader=CSVReader(
-        block_parser=lambda x: parser(x, instrument_id=instrument.id), 
+        block_parser=lambda x: parser(x, instrument_id=instrument.id),
         header=['timestamp', 'bid', 'ask', 'volume'],
-        chunked=False, 
+        chunked=False,
         as_dataframe=False,
     ),
     catalog=catalog,

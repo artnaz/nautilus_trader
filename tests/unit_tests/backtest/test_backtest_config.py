@@ -38,7 +38,7 @@ from nautilus_trader.model.data.venue import InstrumentStatusUpdate
 from nautilus_trader.model.identifiers import ClientId
 from nautilus_trader.model.identifiers import Venue
 from nautilus_trader.model.orderbook.data import OrderBookData
-from nautilus_trader.persistence.external.core import process_files
+from nautilus_trader.persistence.catalog.parquet.core import process_files
 from nautilus_trader.persistence.external.readers import CSVReader
 from nautilus_trader.test_kit.mocks.data import NewsEventData
 from nautilus_trader.test_kit.mocks.data import aud_usd_data_loader

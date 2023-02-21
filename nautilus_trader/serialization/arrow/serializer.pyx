@@ -39,6 +39,13 @@ def get_schema(cls: type):
     return _SCHEMAS[get_cls_table(cls)]
 
 
+def get_delegate(cls: type):
+    delegate = _PARQUET_TO_DICT_MAP.get(cls)
+    if delegate is None:
+        delegate = _OBJECT_TO_DICT_MAP.get(cls.__name__)
+    return delegate
+
+
 def list_schemas():
     return _SCHEMAS
 
