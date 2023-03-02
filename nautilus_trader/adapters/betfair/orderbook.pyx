@@ -12,31 +12,33 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # -------------------------------------------------------------------------------------------------
+from nautilus_trader.model.orderbook.book import L2OrderBook
 
-from nautilus_trader.accounting.accounts.base cimport Account
-from nautilus_trader.model.enums_c cimport OrderSide
 from nautilus_trader.model.identifiers cimport InstrumentId
-from nautilus_trader.model.instruments.base cimport Instrument
-from nautilus_trader.model.objects cimport Money
 from nautilus_trader.model.objects cimport Price
 from nautilus_trader.model.objects cimport Quantity
 
+from nautilus_trader.adapters.betfair.common import BETFAIR_FLOAT_TO_PRICE
+from nautilus_trader.adapters.betfair.common import BETFAIR_PRICE_PRECISION
+from nautilus_trader.adapters.betfair.common import BETFAIR_QUANTITY_PRECISION
+from nautilus_trader.adapters.betfair.constants import BETFAIR_PRICE_PRECISION
+from nautilus_trader.adapters.betfair.constants import BETFAIR_QUANTITY_PRECISION
 
-cdef class CashAccount(Account):
-    cdef dict _balances_locked
 
-# -- COMMANDS -------------------------------------------------------------------------------------
-
-    cpdef void update_balance_locked(self, InstrumentId instrument_id, Money locked)
-    cpdef void clear_balance_locked(self, InstrumentId instrument_id)
-
-# -- CALCULATIONS ---------------------------------------------------------------------------------
-
-    cpdef Money calculate_balance_locked(
-        self,
-        Instrument instrument,
-        OrderSide side,
-        Quantity quantity,
-        Price price,
-        bint inverse_as_quote=*,
+cpdef inline L2OrderBook create_betfair_order_book(InstrumentId instrument_id):
+    return L2OrderBook(
+        instrument_id,
+        BETFAIR_PRICE_PRECISION,
+        BETFAIR_QUANTITY_PRECISION
     )
+
+
+cpdef Price betfair_float_to_price(double value):
+    try:
+        return BETFAIR_FLOAT_TO_PRICE[value]
+    except KeyError:
+        return Price(value, BETFAIR_PRICE_PRECISION)
+
+cpdef Quantity betfair_float_to_quantity(double value):
+    cdef Quantity quantity = Quantity(value, BETFAIR_QUANTITY_PRECISION)
+    return quantity

@@ -13,20 +13,13 @@
 #  limitations under the License.
 # -------------------------------------------------------------------------------------------------
 
-from nautilus_trader.indicators.atr cimport AverageTrueRange
-from nautilus_trader.indicators.average.moving_average cimport MovingAverage
-from nautilus_trader.indicators.base.indicator cimport Indicator
+
+from nautilus_trader.model.identifiers cimport InstrumentId
+from nautilus_trader.model.objects cimport Price
+from nautilus_trader.model.objects cimport Quantity
+from nautilus_trader.model.orderbook.book cimport L2OrderBook
 
 
-cdef class Pressure(Indicator):
-    cdef AverageTrueRange _atr
-    cdef MovingAverage _average_volume
-
-    cdef readonly int period
-    """The window period.\n\n:returns: `int`"""
-    cdef readonly double value
-    """The current value.\n\n:returns: `int`"""
-    cdef readonly double value_cumulative
-    """The cumulative value.\n\n:returns: `int`"""
-
-    cpdef void update_raw(self, double high, double low, double close, double volume)
+cpdef L2OrderBook create_betfair_order_book(InstrumentId instrument_id)
+cpdef Price betfair_float_to_price(double value)
+cpdef Quantity betfair_float_to_quantity(double value)
