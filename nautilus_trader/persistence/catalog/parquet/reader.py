@@ -26,6 +26,7 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.dataset as ds
 import pyarrow.parquet as pq
+from fsspec.utils import infer_storage_options
 from pyarrow import ArrowInvalid
 
 from nautilus_trader.core.datetime import dt_to_unix_nanos
@@ -68,6 +69,9 @@ class ParquetDataCatalogReader(AbstractDataCatalogReader):
     """
 
     def __init__(self, catalog_url: str):
+        inferred = infer_storage_options(catalog_url)
+        self.protocol = inferred["protocol"]
+        self.path = inferred["path"]
         self.catalog_url = catalog_url
 
     # -- QUERIES -----------------------------------------------------------------------------------

@@ -44,6 +44,23 @@ from nautilus_trader.test_kit.stubs.data import TestDataStubs
 # from tests import TEST_DATA_DIR
 
 
+class TestParquetDataCatalogReader:
+    def setup(self):
+        self.catalog: ParquetDataCatalog = data_catalog_setup(protocol="memory")
+        self.instruments = [
+            TestInstrumentProvider.equity(symbol=s, venue="NASDAQ")
+            for s in ("AAPL", "GOOG", "META", "AMZN")
+        ]
+
+    def test_write_to_catalog(self):
+        count = 1000
+        instrument_dict = {ins.id: ins for ins in self.instruments}
+        for instrument in self.instruments:
+            quote_ticks = TestDataStubs.generate_quote_ticks(instrument.id.value, count=count)
+            self.catalog.write(quote_ticks, instrument_dict=instrument_dict)
+        self.catalog.quote_ticks()
+
+
 class TestParquetDataCatalogWriter:
     def setup(self):
         self.catalog: ParquetDataCatalog = data_catalog_setup(protocol="memory")
@@ -58,6 +75,7 @@ class TestParquetDataCatalogWriter:
         for instrument in self.instruments:
             quote_ticks = TestDataStubs.generate_quote_ticks(instrument.id.value, count=count)
             self.catalog.write(quote_ticks, instrument_dict=instrument_dict)
+        self.catalog.quote_ticks()
 
 
 #     def test_get_files_for_timestamp_range(self):
