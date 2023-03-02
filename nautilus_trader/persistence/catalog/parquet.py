@@ -111,14 +111,13 @@ class ParquetDataCatalog(BaseDataCatalog):
 
     # -- QUERIES -----------------------------------------------------------------------------------
 
-    def query(self, cls, filter_expr=None, instrument_ids=None, as_nautilus=False, **kwargs):
+    def query(self, cls, filter_expr=None, instrument_ids=None, **kwargs):
         if not is_nautilus_class(cls):
             # Special handling for generic data
             return self.generic_data(
                 cls=cls,
                 filter_expr=filter_expr,
                 instrument_ids=instrument_ids,
-                as_nautilus=as_nautilus,
                 **kwargs,
             )
         else:
@@ -126,26 +125,19 @@ class ParquetDataCatalog(BaseDataCatalog):
                 cls=cls,
                 filter_expr=filter_expr,
                 instrument_ids=instrument_ids,
-                as_nautilus=as_nautilus,
                 **kwargs,
             )
 
-    def _query(  # noqa (too complex)
-        self,
-        cls: type,
-        instrument_ids: Optional[list[str]] = None,
+    @staticmethod
+    def _build_filters(
         filter_expr: Optional[Callable] = None,
+        instrument_ids: Optional[list[str]] = None,
         start: Optional[Union[pd.Timestamp, str, int]] = None,
         end: Optional[Union[pd.Timestamp, str, int]] = None,
         ts_column: str = "ts_init",
-        raise_on_empty: bool = True,
         instrument_id_column="instrument_id",
-        table_kwargs: Optional[dict] = None,
         clean_instrument_keys: bool = True,
-        as_dataframe: bool = True,
-        projections: Optional[dict] = None,
-        **kwargs,
-    ):
+    ) -> list[ds.Expression]:
         filters = [filter_expr] if filter_expr is not None else []
         if instrument_ids is not None:
             if not isinstance(instrument_ids, list):
@@ -157,14 +149,36 @@ class ParquetDataCatalog(BaseDataCatalog):
             filters.append(ds.field(ts_column) >= pd.Timestamp(start).value)
         if end is not None:
             filters.append(ds.field(ts_column) <= pd.Timestamp(end).value)
+        return filters
+
+    def _query(  # noqa (too complex)
+        self,
+        cls: type,
+        instrument_ids: Optional[list[str]] = None,
+        filter_expr: Optional[Callable] = None,
+        start: Optional[Union[pd.Timestamp, str, int]] = None,
+        end: Optional[Union[pd.Timestamp, str, int]] = None,
+        ts_column: str = "ts_init",
+        raise_on_empty: bool = True,
+        instrument_id_column="instrument_id",
+        clean_instrument_keys: bool = True,
+        **kwargs,
+    ):
+        filters = self._build_filters(
+            filter_expr=filter_expr,
+            instrument_ids=instrument_ids,
+            start=start,
+            end=end,
+            ts_column=ts_column,
+            instrument_id_column=instrument_id_column,
+            clean_instrument_keys=clean_instrument_keys,
+        )
 
         full_path = self.make_path(cls=cls)
 
         if not (self.fs.exists(full_path) or self.fs.isdir(full_path)):
             if raise_on_empty:
                 raise FileNotFoundError(f"protocol={self.fs.protocol}, path={full_path}")
-            else:
-                return pd.DataFrame() if as_dataframe else None
 
         # Load rust objects
         if isinstance(start, int) or start is None:
@@ -205,13 +219,8 @@ class ParquetDataCatalog(BaseDataCatalog):
 
         dataset = ds.dataset(full_path, partitioning="hive", filesystem=self.fs)
 
-        table_kwargs = table_kwargs or {}
-        if projections:
-            projected = {**{c: ds.field(c) for c in dataset.schema.names}, **projections}
-            table_kwargs.update(columns=projected)
-
         try:
-            table = dataset.to_table(filter=combine_filters(*filters), **(table_kwargs or {}))
+            table = dataset.to_table(filter=combine_filters(*filters))
         except Exception as e:
             print(e)
             raise e
@@ -228,16 +237,7 @@ class ParquetDataCatalog(BaseDataCatalog):
             return df
 
         mappings = self.load_inverse_mappings(path=full_path)
-
-        if "as_nautilus" in kwargs:
-            as_dataframe = not kwargs.pop("as_nautilus")
-
-        if as_dataframe:
-            return self._handle_table_dataframe(
-                table=table, mappings=mappings, raise_on_empty=raise_on_empty, **kwargs
-            )
-        else:
-            return self._handle_table_nautilus(table=table, cls=cls, mappings=mappings)
+        return self._handle_table_nautilus(table=table, cls=cls, mappings=mappings)
 
     def make_path(self, cls: type, instrument_id: Optional[str] = None) -> str:
         path = f"{self.path}/data/{class_to_filename(cls=cls)}.parquet"
@@ -374,7 +374,6 @@ class ParquetDataCatalog(BaseDataCatalog):
                     filter_expr=filter_expr,
                     instrument_ids=instrument_ids,
                     raise_on_empty=False,
-                    as_nautilus=as_nautilus,
                     **kwargs,
                 )
                 dfs.append(df)
@@ -397,7 +396,6 @@ class ParquetDataCatalog(BaseDataCatalog):
     def generic_data(
         self,
         cls: type,
-        as_nautilus: bool = False,
         metadata: Optional[dict] = None,
         filter_expr: Optional[Callable] = None,
         **kwargs,
@@ -405,14 +403,9 @@ class ParquetDataCatalog(BaseDataCatalog):
         data = self._query(
             cls=cls,
             filter_expr=filter_expr,
-            as_dataframe=not as_nautilus,
             **kwargs,
         )
-        if as_nautilus:
-            if data is None:
-                return []
-            return [GenericData(data_type=DataType(cls, metadata=metadata), data=d) for d in data]
-        return data
+        return [GenericData(data_type=DataType(cls, metadata=metadata), data=d) for d in data]
 
     def instruments(
         self,
