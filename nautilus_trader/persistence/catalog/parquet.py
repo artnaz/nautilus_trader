@@ -314,26 +314,6 @@ class ParquetDataCatalog(BaseDataCatalog):
         return mappings
 
     @staticmethod
-    def _handle_table_dataframe(
-        table: pa.Table,
-        mappings: Optional[dict],
-        raise_on_empty: bool = True,
-        sort_columns: Optional[list] = None,
-        as_type: Optional[dict] = None,
-    ):
-        df = table.to_pandas().drop_duplicates()
-        for col in mappings:
-            df.loc[:, col] = df[col].map(mappings[col])
-
-        if df.empty and raise_on_empty:
-            raise ValueError("Data empty")
-        if sort_columns:
-            df = df.sort_values(sort_columns)
-        if as_type:
-            df = df.astype(as_type)
-        return df
-
-    @staticmethod
     def _handle_table_nautilus(
         table: Union[pa.Table, pd.DataFrame],
         cls: type,
